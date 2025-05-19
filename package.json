@@ -1,0 +1,58 @@
+{
+  "name": "@kne/fastify-account",
+  "version": "2.0.0-alpha.0",
+  "description": "用于用户注册登录认证",
+  "main": "index.js",
+  "scripts": {
+    "init": "husky",
+    "dev": "nodemon ./index.js",
+    "start": "node ./index.js",
+    "doc": "node ./open-api.js",
+    "build:md": "npx @kne/md-doc",
+    "start:md": "npx @kne/md-doc --watch",
+    "prettier": "prettier --config .prettierrc --write '{libs/**/*,index}.{js,jsx,ts,tsx,json,css,scss}'",
+    "lint-staged": "npx lint-staged"
+  },
+  "lint-staged": {
+    "**/*.md": [
+      "git add"
+    ],
+    "{libs/**/*,index}.{js,jsx,ts,tsx,json,css,scss}": [
+      "prettier --config .prettierrc --write",
+      "git add"
+    ]
+  },
+  "files": [
+    "index.js",
+    "libs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kne-union/fastify-user.git"
+  },
+  "keywords": [],
+  "author": "linzp",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kne-union/fastify-user/issues"
+  },
+  "homepage": "https://github.com/kne-union/fastify-user#readme",
+  "peerDependencies": {
+    "@kne/fastify-namespace": "*",
+    "@kne/fastify-sequelize": "*",
+    "fastify-plugin": ">=5"
+  },
+  "dependencies": {
+    "@fastify/jwt": "^9.1.0",
+    "bcryptjs": "^3.0.2",
+    "dayjs": "^1.11.13",
+    "fs-extra": "^11.2.0",
+    "http-errors": "^2.0.0",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "nodemon": "^3.1.3",
+    "prettier": "^3.2.5"
+  }
+}
