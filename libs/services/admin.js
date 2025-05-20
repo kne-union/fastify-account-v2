@@ -11,13 +11,13 @@ const adminService = fp(async (fastify, options) => {
         })) > 0) {
             throw new Error('系统已经初始化完成，不能执行该操作');
         }
-        const currentUser = await services.user.getUserInstance({uuid: user.id});
+        const currentUser = await services.user.getUserInstance({id: user.id});
         currentUser.isSuperAdmin = true;
         await currentUser.save();
     };
 
     const checkIsSuperAdmin = async (user) => {
-        const currentUser = await services.user.getUserInstance({uuid: user.id});
+        const currentUser = await services.user.getUserInstance({id: user.id});
         return currentUser.isSuperAdmin === true;
     };
 
