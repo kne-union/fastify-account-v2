@@ -160,13 +160,13 @@ const accountService = fp(async (fastify, options) => {
     await passwordAuthentication({ accountId: user.userAccountId, password });
 
     return {
-      token: fastify.jwt.sign({ payload: { id: user.uuid } }),
-      user: Object.assign({}, user.get({ plain: true }), { id: user.uuid })
+      token: fastify.jwt.sign({ payload: { id: user.id } }),
+      user: Object.assign({}, user.get({ plain: true }), { id: user.id })
     };
   };
 
   const resetPassword = async ({ password, userId }) => {
-    const user = await services.user.getUserInstance({ uuid: userId });
+    const user = await services.user.getUserInstance({ id: userId });
     const account = await models.userAccount.create(
       Object.assign({}, await passwordEncryption(password), {
         belongToUserId: user.id

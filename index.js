@@ -17,7 +17,10 @@ const user = fp(
         isTest: false,
         jwt: {
           secret: 'super-secret',
-          expires: null
+          expires: null,
+          verify: {
+            extractToken: request => request.headers['x-user-token']
+          }
         },
         defaultPassword: 'Aa000000!',
         sendMessage: async () => {}
