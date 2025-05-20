@@ -48,7 +48,12 @@ const user = fp(
           {
             user: async request => {
               const { services } = fastify[options.name];
-              const info = await request.jwtVerify();
+              let info;
+              try {
+                info = await request.jwtVerify();
+              } catch (e) {
+                throw Unauthorized('身份认证失败');
+              }
               //这里判断失效时间
               if (options.jwt.expires && Date.now() - info.iat * 1000 > options.jwt.expires) {
                 throw Unauthorized('身份认证超时');
