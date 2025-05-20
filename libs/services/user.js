@@ -99,7 +99,7 @@ const userService = fp(async (fastify, options) => {
   };
 
   const saveUser = async ({ id, ...otherInfo }) => {
-    const user = await getUserInstance(id);
+    const user = await getUserInstance({id});
 
     if ((await accountIsExists({ phone: otherInfo.phone, email: otherInfo.email }, user)) > 0) {
       throw new Error('手机号或者邮箱都不能重复');
