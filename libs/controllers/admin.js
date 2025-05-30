@@ -36,6 +36,7 @@ const adminController = fp(async (fastify, options) => {
                                             type: 'object',
                                             properties: {
                                                 id: {type: 'string', description: '用户id'},
+                                                avatar: {type: 'string', description: '头像图片id'},
                                                 nickname: {type: 'string', description: '用户昵称'},
                                                 email: {type: 'string', description: '邮箱'},
                                                 phone: {type: 'string', description: '电话'},
