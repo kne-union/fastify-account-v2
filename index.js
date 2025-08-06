@@ -1,6 +1,6 @@
 const fp = require('fastify-plugin');
 const path = require('node:path');
-const {merge } = require('lodash');
+const { merge } = require('lodash');
 const jwt = require('@fastify/jwt');
 const namespace = require('@kne/fastify-namespace');
 const httpErrors = require('http-errors');
@@ -8,7 +8,7 @@ const httpErrors = require('http-errors');
 const { Unauthorized } = httpErrors;
 
 const user = fp(
-  async function (fastify, options) {
+  async function(fastify, options) {
     options = merge(
       {
         name: 'account',
@@ -19,11 +19,12 @@ const user = fp(
           secret: 'super-secret',
           expires: null,
           verify: {
-            extractToken: request => request.headers['x-user-token']
+            extractToken: request => request.headers['x-user-token'] || request.query?.token
           }
         },
         defaultPassword: 'Aa000000!',
-        sendMessage: async () => {}
+        sendMessage: async () => {
+        }
       },
       options
     );
