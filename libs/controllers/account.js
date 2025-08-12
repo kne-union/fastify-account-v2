@@ -33,7 +33,8 @@ const accountController = fp(async (fastify, options) => {
     schema: {
       tags: ['账号'], summary: '发送登录短信验证码', body: {
         type: 'object', required: ['phone'], properties: {
-          phone: { type: 'string', description: '电话' }
+          phone: { type: 'string', description: '电话' },
+          type: { type: 'number', description: '0:注册,2:登录,4:验证租户管理员,5:忘记密码', default: 0 }
         }
       }, response: {
         200: {
@@ -50,8 +51,8 @@ const accountController = fp(async (fastify, options) => {
       }
     }
   }, async request => {
-    const { phone } = request.body;
-    const code = await services.account.sendVerificationCode({ name: phone, type: 0 });
+    const { phone, type } = request.body;
+    const code = await services.account.sendVerificationCode({ name: phone, type });
     return options.isTest ? { code } : {};
   });
 
