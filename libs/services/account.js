@@ -24,10 +24,7 @@ const accountService = fp(async (fastify, options) => {
   const verificationCodeValidate = async ({ name, type, code }) => {
     const verificationCode = await models.verificationCode.findOne({
       where: {
-        name,
-        type,
-        code,
-        status: {
+        name, type, code, status: {
           [fastify.sequelize.Sequelize.Op.or]: [0, 1]
         }
       }
@@ -44,41 +41,34 @@ const accountService = fp(async (fastify, options) => {
 
   const generateVerificationCode = async ({ name, type }) => {
     const code = generateRandom6DigitNumber();
-    await models.verificationCode.update(
-      {
-        status: 2
-      },
-      {
-        where: {
-          name,
-          type,
-          status: 0
-        }
+    await models.verificationCode.update({
+      status: 2
+    }, {
+      where: {
+        name, type, status: 0
       }
-    );
+    });
     await models.verificationCode.create({
-      name,
-      type,
-      code
+      name, type, code
     });
     return code;
   };
 
-  const sendVerificationCode = async ({ name, type }) => {
+  const sendVerificationCode = async ({ name, type, options: otherOptions }) => {
     // messageType: 0:短信验证码，1:邮件验证码 type: 0:注册,2:登录,4:验证租户管理员,5:忘记密码
     const code = await generateVerificationCode({ name, type });
     const isEmail = userNameIsEmail(name);
     // 这里写发送逻辑
-    await options.sendMessage({ name, type, messageType: isEmail ? 1 : 0, props: { code } });
+    await options.sendMessage({ name, type, messageType: isEmail ? 1 : 0, props: { code, options: otherOptions } });
     return code;
   };
 
-  const sendJWTVerificationCode = async ({ name, type }) => {
+  const sendJWTVerificationCode = async ({ name, type, options: otherOptions }) => {
     const code = await generateVerificationCode({ name, type });
     const token = fastify.jwt.sign({ name, type, code });
     const isEmail = userNameIsEmail(name);
     // 这里写发送逻辑
-    await options.sendMessage({ name, type, messageType: isEmail ? 1 : 0, props: { token } });
+    await options.sendMessage({ name, type, messageType: isEmail ? 1 : 0, props: { token, options: otherOptions } });
     return token;
   };
 
@@ -96,8 +86,7 @@ const accountService = fp(async (fastify, options) => {
     const hash = await bcrypt.hash(combinedString, salt);
 
     return {
-      password: hash,
-      salt
+      password: hash, salt
     };
   };
 
@@ -112,22 +101,16 @@ const accountService = fp(async (fastify, options) => {
     }
   };
 
-  const register = async ({ avatar, nickname, gender, birthday, description, phone, email, code, password, status }) => {
+  const register = async ({
+                            avatar, nickname, gender, birthday, description, phone, email, code, password, status
+                          }) => {
     const type = phone ? 0 : 1;
     if (!(await verificationCodeValidate({ name: type === 0 ? phone : email, type: 0, code }))) {
       throw new Error('验证码不正确或者已经过期');
     }
 
     return await services.user.addUser({
-      avatar,
-      nickname,
-      gender,
-      birthday,
-      description,
-      phone,
-      email,
-      password,
-      status
+      avatar, nickname, gender, birthday, description, phone, email, password, status
     });
   };
 
@@ -167,11 +150,9 @@ const accountService = fp(async (fastify, options) => {
 
   const resetPassword = async ({ password, userId }) => {
     const user = await services.user.getUserInstance({ id: userId });
-    const account = await models.userAccount.create(
-      Object.assign({}, await passwordEncryption(password), {
-        belongToUserId: user.id
-      })
-    );
+    const account = await models.userAccount.create(Object.assign({}, await passwordEncryption(password), {
+      belongToUserId: user.id
+    }));
     await user.update({ userAccountId: account.id });
   };
 

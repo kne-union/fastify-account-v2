@@ -7,7 +7,8 @@ const accountController = fp(async (fastify, options) => {
       tags: ['账号'], summary: '发送登录邮箱验证码', body: {
         type: 'object', required: ['email'], properties: {
           email: { type: 'string', description: '邮箱' },
-          type: { type: 'number', description: '0:注册,2:登录,4:验证租户管理员,5:忘记密码', default: 0 }
+          type: { type: 'number', description: '0:注册,2:登录,4:验证租户管理员,5:忘记密码', default: 0 },
+          options: { type: 'object' }
         }
       }, response: {
         200: {
@@ -24,8 +25,8 @@ const accountController = fp(async (fastify, options) => {
       }
     }
   }, async request => {
-    const { email, type } = request.body;
-    const code = await services.account.sendVerificationCode({ name: email, type });
+    const { email, type, options: otherOptions } = request.body;
+    const code = await services.account.sendVerificationCode({ name: email, type, options: otherOptions });
     return options.isTest ? { code } : {};
   });
 
@@ -34,7 +35,8 @@ const accountController = fp(async (fastify, options) => {
       tags: ['账号'], summary: '发送登录短信验证码', body: {
         type: 'object', required: ['phone'], properties: {
           phone: { type: 'string', description: '电话' },
-          type: { type: 'number', description: '0:注册,2:登录,4:验证租户管理员,5:忘记密码', default: 0 }
+          type: { type: 'number', description: '0:注册,2:登录,4:验证租户管理员,5:忘记密码', default: 0 },
+          options: { type: 'object' }
         }
       }, response: {
         200: {
@@ -51,8 +53,8 @@ const accountController = fp(async (fastify, options) => {
       }
     }
   }, async request => {
-    const { phone, type } = request.body;
-    const code = await services.account.sendVerificationCode({ name: phone, type });
+    const { phone, type, options: otherOptions } = request.body;
+    const code = await services.account.sendVerificationCode({ name: phone, type, options: otherOptions });
     return options.isTest ? { code } : {};
   });
 
