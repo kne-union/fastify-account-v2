@@ -122,7 +122,7 @@ const accountService = fp(async (fastify, options) => {
     };
     (() => {
       if (type === 'email') {
-        query.email = email;
+        query.email = email.toLowerCase();
         return;
       }
       if (type === 'phone') {
