@@ -68,15 +68,33 @@ const userService = fp(async (fastify, options) => {
   const getUserList = async ({ filter, perPage, currentPage }) => {
     const queryFilter = {};
 
-    ['nickname'].forEach(key => {
+    ['nickname', 'phone', 'email'].forEach(key => {
       if (filter && filter[key]) {
         queryFilter[key] = {
           [Op.like]: `%${filter[key]}%`
         };
       }
     });
+    ['status'].forEach(key => {
+      if (filter && filter[key]) {
+        queryFilter[key] = filter[key];
+      }
+    });
+    if (filter?.isSuperAdmin !== undefined) {
+      if (filter.isSuperAdmin === 'true') {
+        queryFilter.isSuperAdmin = true;
+      } else {
+        queryFilter.isSuperAdmin = {
+          [Op.or]: [false, null]
+        };
+      }
+    }
+
     const { count, rows } = await models.user.findAndCountAll({
-      where: queryFilter, offset: perPage * (currentPage - 1), limit: perPage
+      where: queryFilter,
+      offset: perPage * (currentPage - 1),
+      limit: perPage,
+      order: [['createdAt', 'DESC']]
     });
     return {
       pageData: rows.map(item => {
