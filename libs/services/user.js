@@ -36,19 +36,17 @@ const userService = fp(async (fastify, options) => {
   const accountIsExists = async ({ email, phone }, currentUser) => {
     const query = [];
     if (email && email !== get(currentUser, 'email')) {
-      query.push({ email });
+      query.push({ email: email.toLowerCase() });
     }
     if (phone && phone !== get(currentUser, 'phone')) {
       query.push({ phone });
     }
 
-    return (
-      (await models.user.count({
-        where: {
-          [Op.or]: query
-        }
-      })) > 0
-    );
+    return ((await models.user.count({
+      where: {
+        [Op.or]: query
+      }
+    })) > 0);
   };
 
   const addUser = async ({ avatar, nickname, gender, birthday, description, phone, email, password, status }) => {
@@ -60,15 +58,7 @@ const userService = fp(async (fastify, options) => {
     }
     const account = await models.userAccount.create(await services.account.passwordEncryption(password));
     const user = await models.user.create({
-      avatar,
-      nickname,
-      gender,
-      birthday,
-      description,
-      phone,
-      email,
-      status,
-      userAccountId: account.id
+      avatar, nickname, gender, birthday, description, phone, email, status, userAccountId: account.id
     });
     await account.update({ belongToUserId: user.id });
 
@@ -109,13 +99,12 @@ const userService = fp(async (fastify, options) => {
     return {
       pageData: rows.map(item => {
         return Object.assign({}, item.get({ pain: true }));
-      }),
-      totalCount: count
+      }), totalCount: count
     };
   };
 
   const saveUser = async ({ id, ...otherInfo }) => {
-    const user = await getUserInstance({id});
+    const user = await getUserInstance({ id });
 
     if ((await accountIsExists({ phone: otherInfo.phone, email: otherInfo.email }, user)) > 0) {
       throw new Error('手机号或者邮箱都不能重复');
@@ -143,14 +132,7 @@ const userService = fp(async (fastify, options) => {
   };
 
   services.user = {
-    getUserInstance,
-    getUser,
-    addUser,
-    saveUser,
-    accountIsExists,
-    getUserList,
-    setSuperAdmin,
-    setUserStatus
+    getUserInstance, getUser, addUser, saveUser, accountIsExists, getUserList, setSuperAdmin, setUserStatus
   };
 });
 
