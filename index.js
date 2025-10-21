@@ -68,6 +68,7 @@ const user = fp(
               if (!(await services.admin.checkIsSuperAdmin(request.userInfo))) {
                 throw Unauthorized('不能执行该操作，需要超级管理员权限');
               }
+              request.userInfo.isAdmin = true;
             }
           }
         ]
