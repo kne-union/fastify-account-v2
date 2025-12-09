@@ -115,11 +115,7 @@ const accountService = fp(async (fastify, options) => {
   };
 
   const login = async ({ type, email, phone, password }) => {
-    const query = {
-      status: {
-        [Op.or]: [0, 1]
-      }
-    };
+    const query = {};
     (() => {
       if (type === 'email') {
         query.email = email.toLowerCase();
@@ -142,10 +138,36 @@ const accountService = fp(async (fastify, options) => {
 
     await passwordAuthentication({ accountId: user.userAccountId, password });
 
+    if (!(user.status === 0 || user.status === 1)) {
+      return {
+        status: user.status
+      };
+    }
+
     return {
       token: fastify.jwt.sign({ payload: { id: user.id } }),
       user: Object.assign({}, user.get({ plain: true }), { id: user.id })
     };
+  };
+
+  const resetPasswordByToken = async ({ password, token }) => {
+    const { name } = await verificationJWTCodeValidate({ token });
+    const user = await services.user.getUserInstanceByName({ name, status: [0, 1] });
+    await resetPassword({ password, userId: user.id });
+  };
+
+  const modifyPassword = async ({ email, phone, oldPwd, newPwd }) => {
+    const user = await services.user.getUserInstanceByName({ name: email || phone, status: 10 });
+    if (!user) {
+      throw new Error('新用户密码只能初始化一次');
+    }
+    if (oldPwd === newPwd) {
+      throw new Error('重置密码不能和初始化密码相同');
+    }
+    await passwordAuthentication({ accountId: user.userAccountId, password: oldPwd });
+    await resetPassword({ userId: user.id, password: newPwd });
+    user.status = 0;
+    await user.save();
   };
 
   const resetPassword = async ({ password, userId }) => {
@@ -167,7 +189,9 @@ const accountService = fp(async (fastify, options) => {
     login,
     userNameIsEmail,
     md5,
-    resetPassword
+    resetPassword,
+    resetPasswordByToken,
+    modifyPassword
   };
 });
 

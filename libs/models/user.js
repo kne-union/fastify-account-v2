@@ -26,9 +26,15 @@ const user = ({ DataTypes, definePrimaryType }) => {
       }
     }, options: {
       indexes: [{
-        unique: true, fields: ['email', 'deleted_at']
+        unique: true, fields: ['email'],
+        where: {
+          deleted_at: null
+        }
       }, {
-        unique: true, fields: ['phone', 'deleted_at']
+        unique: true, fields: ['phone'],
+        where: {
+          deleted_at: null
+        }
       }]
     }
   };
