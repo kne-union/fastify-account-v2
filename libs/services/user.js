@@ -1,5 +1,5 @@
 const fp = require('fastify-plugin');
-const { pick, get } = require('lodash');
+const { pick, get, isNil } = require('lodash');
 const httpErrors = require('http-errors');
 
 const { Unauthorized } = httpErrors;
@@ -31,6 +31,25 @@ const userService = fp(async (fastify, options) => {
       throw new Unauthorized();
     }
     return Object.assign({}, pick(user, ['id', 'avatar', 'nickname', 'phone', 'email', 'gender', 'status', 'birthday', 'description']));
+  };
+
+  const getUserInstanceByName = async ({ name, status }) => {
+    const isEmail = services.account.userNameIsEmail(name);
+    const query = {};
+    if (!isNil(status)) {
+      query['status'] = Array.isArray(status) ? {
+        [fastify.sequelize.Sequelize.Op.or]: status
+      } : status;
+    }
+    const user = await models.user.findOne({
+      where: Object.assign({}, isEmail ? { email: name } : { phone: name }, query)
+    });
+
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    return user;
   };
 
   const accountIsExists = async ({ email, phone }, currentUser) => {
@@ -91,10 +110,7 @@ const userService = fp(async (fastify, options) => {
     }
 
     const { count, rows } = await models.user.findAndCountAll({
-      where: queryFilter,
-      offset: perPage * (currentPage - 1),
-      limit: perPage,
-      order: [['createdAt', 'DESC']]
+      where: queryFilter, offset: perPage * (currentPage - 1), limit: perPage, order: [['createdAt', 'DESC']]
     });
     return {
       pageData: rows.map(item => {
@@ -132,7 +148,15 @@ const userService = fp(async (fastify, options) => {
   };
 
   services.user = {
-    getUserInstance, getUser, addUser, saveUser, accountIsExists, getUserList, setSuperAdmin, setUserStatus
+    getUserInstance,
+    getUserInstanceByName,
+    getUser,
+    addUser,
+    saveUser,
+    accountIsExists,
+    getUserList,
+    setSuperAdmin,
+    setUserStatus
   };
 });
 

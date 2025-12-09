@@ -177,7 +177,7 @@ const accountController = fp(async (fastify, options) => {
               schema: {
                 type: 'object', properties: {
                   token: { type: 'string', description: '用户token' },
-                  currentTenantId: { type: 'string', description: '当前租户id' }
+                  status: { type: 'number', description: '用户当前状态' }
                 }
               }
             }
@@ -187,8 +187,8 @@ const accountController = fp(async (fastify, options) => {
     }
   }, async request => {
     const appName = request.headers['x-app-name'];
-    const { token, user } = await services.account.login(Object.assign({}, request.body, { appName }));
-    return { token, currentTenantId: user.currentTenantId };
+    const { token, user, status } = await services.account.login(Object.assign({}, request.body, { appName }));
+    return { token, status };
   });
 
   fastify.post(`${options.prefix}/account/modifyPassword`, {
