@@ -235,18 +235,20 @@ const accountController = fp(async (fastify, options) => {
       tags: ['账号'], summary: '忘记密码', body: {
         oneOf: [{
           type: 'object', required: ['email'], properties: {
-            email: { type: 'string', description: '邮箱' }
+            email: { type: 'string', description: '邮箱' }, referer: { type: 'string', description: '来源' }
           }
         }, {
           type: 'object', required: ['phone'], properties: {
-            phone: { type: 'string', description: '手机号' }
+            phone: { type: 'string', description: '手机号' }, referer: { type: 'string', description: '来源' }
           }
         }]
       }
     }
   }, async request => {
     const name = request.body.email || request.body.phone;
-    const token = await services.account.sendJWTVerificationCode({ name, type: 5 });
+    const token = await services.account.sendJWTVerificationCode({
+      name, type: 5, options: { referer: request.body.referer }
+    });
     return options.isTest ? { token } : {};
   });
 
