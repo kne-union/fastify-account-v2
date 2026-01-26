@@ -56,6 +56,7 @@ const accountService = fp(async (fastify, options) => {
 
   const sendVerificationCode = async ({ name, type, options: otherOptions }) => {
     // messageType: 0:短信验证码，1:邮件验证码 type: 0:注册,2:登录,4:验证租户管理员,5:忘记密码
+    name = name.toLowerCase();
     const code = await generateVerificationCode({ name, type });
     const isEmail = userNameIsEmail(name);
     // 这里写发送逻辑
