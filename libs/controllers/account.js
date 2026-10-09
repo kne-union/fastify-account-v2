@@ -1,4 +1,5 @@
 const fp = require('fastify-plugin');
+const { createError } = require('../utils/intl');
 
 const accountController = fp(async (fastify, options) => {
   const { services } = fastify[options.name];
@@ -82,7 +83,7 @@ const accountController = fp(async (fastify, options) => {
       name, type, code
     });
     if (!isPass) {
-      throw new Error('验证码错误');
+      throw createError(null, 'verificationCodeIncorrect');
     }
     return {};
   });

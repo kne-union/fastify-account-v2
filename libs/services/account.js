@@ -2,6 +2,7 @@ const fp = require('fastify-plugin');
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const dayjs = require('dayjs');
+const { createError } = require('../utils/intl');
 
 const generateRandom6DigitNumber = () => {
   const randomNumber = Math.random() * 1000000;
@@ -39,6 +40,11 @@ const accountService = fp(async (fastify, options) => {
     return isPass;
   };
 
+  // validateCode 预校验后验证码仍需可用于注册，所以只在注册 / 重置密码成功后作废
+  const consumeVerificationCode = async ({ name, type, code }) => {
+    await models.verificationCode.update({ status: 2 }, { where: { name, type, code } });
+  };
+
   const generateVerificationCode = async ({ name, type }) => {
     const code = generateRandom6DigitNumber();
     await models.verificationCode.update({
@@ -74,9 +80,15 @@ const accountService = fp(async (fastify, options) => {
   };
 
   const verificationJWTCodeValidate = async ({ token }) => {
-    const { iat, name, type, code } = fastify.jwt.decode(token);
+    let payload;
+    try {
+      payload = fastify.jwt.verify(token);
+    } catch (e) {
+      throw createError(null, 'verificationCodeInvalid');
+    }
+    const { name, type, code } = payload;
     if (!(await verificationCodeValidate({ name, type, code }))) {
-      throw new Error('验证码不正确或者已经过期');
+      throw createError(null, 'verificationCodeInvalid');
     }
     return { name, type, code };
   };
@@ -94,11 +106,11 @@ const accountService = fp(async (fastify, options) => {
   const passwordAuthentication = async ({ accountId, password }) => {
     const userAccount = await models.userAccount.findByPk(accountId);
     if (!userAccount) {
-      throw new Error('账号不存在');
+      throw createError(null, 'accountNotFound');
     }
     const generatedHash = await bcrypt.hash(password + userAccount.salt, userAccount.salt);
     if (userAccount.password !== generatedHash) {
-      throw new Error('用户名或密码错误');
+      throw createError(null, 'credentialsInvalid');
     }
   };
 
@@ -106,16 +118,19 @@ const accountService = fp(async (fastify, options) => {
                             avatar, nickname, gender, birthday, description, phone, email, code, password, status
                           }) => {
     const type = phone ? 0 : 1;
-    if (!(await verificationCodeValidate({ name: type === 0 ? phone : email, type: 0, code }))) {
-      throw new Error('验证码不正确或者已经过期');
+    const name = type === 0 ? phone : email;
+    if (!(await verificationCodeValidate({ name, type: 0, code }))) {
+      throw createError(null, 'verificationCodeInvalid');
     }
 
-    return await services.user.addUser({
+    const user = await services.user.addUser({
       avatar, nickname, gender, birthday, description, phone, email, password, status
     });
+    await consumeVerificationCode({ name, type: 0, code });
+    return user;
   };
 
-  const login = async ({ type, email, phone, password }) => {
+  const verifyCredentials = async ({ type, email, phone, password }) => {
     const query = {};
     (() => {
       if (type === 'email') {
@@ -127,14 +142,14 @@ const accountService = fp(async (fastify, options) => {
         return;
       }
 
-      throw new Error('不支持的登录类型');
+      throw createError(null, 'loginTypeUnsupported');
     })();
     const user = await models.user.findOne({
       where: query
     });
 
     if (!user) {
-      throw new Error('用户名或密码错误');
+      throw createError(null, 'credentialsInvalid');
     }
 
     await passwordAuthentication({ accountId: user.userAccountId, password });
@@ -146,24 +161,41 @@ const accountService = fp(async (fastify, options) => {
     }
 
     return {
-      token: fastify.jwt.sign({ payload: { id: user.id } }),
+      status: user.status,
       user: Object.assign({}, user.get({ plain: true }), { id: user.id })
     };
   };
 
+  const login = async props => {
+    const { user, status } = await verifyCredentials(props);
+    if (!user) {
+      return { status };
+    }
+    return {
+      token: fastify.jwt.sign({ payload: { id: user.id } }),
+      user
+    };
+  };
+
   const resetPasswordByToken = async ({ password, token }) => {
-    const { name } = await verificationJWTCodeValidate({ token });
+    const { name, type, code } = await verificationJWTCodeValidate({ token });
     const user = await services.user.getUserInstanceByName({ name, status: [0, 1] });
     await resetPassword({ password, userId: user.id });
+    await consumeVerificationCode({ name, type, code });
   };
 
   const modifyPassword = async ({ email, phone, oldPwd, newPwd }) => {
-    const user = await services.user.getUserInstanceByName({ name: email || phone, status: 10 });
+    const user = await services.user.getUserInstanceByName({ name: email || phone, status: 10 }).catch(error => {
+      if (error.messageId === 'userNotFound') {
+        return null;
+      }
+      throw error;
+    });
     if (!user) {
-      throw new Error('新用户密码只能初始化一次');
+      throw createError(null, 'passwordAlreadyInitialized');
     }
     if (oldPwd === newPwd) {
-      throw new Error('重置密码不能和初始化密码相同');
+      throw createError(null, 'passwordSameAsInitial');
     }
     await passwordAuthentication({ accountId: user.userAccountId, password: oldPwd });
     await resetPassword({ userId: user.id, password: newPwd });
@@ -187,6 +219,7 @@ const accountService = fp(async (fastify, options) => {
     verificationJWTCodeValidate,
     passwordEncryption,
     register,
+    verifyCredentials,
     login,
     userNameIsEmail,
     md5,

@@ -1,6 +1,7 @@
 const fp = require('fastify-plugin');
 const { pick, get, isNil } = require('lodash');
 const httpErrors = require('http-errors');
+const { createError } = require('../utils/intl');
 
 const { Unauthorized } = httpErrors;
 
@@ -12,7 +13,7 @@ const userService = fp(async (fastify, options) => {
     const user = await models.user.findByPk(id);
 
     if (!user) {
-      throw new Error('用户不存在');
+      throw createError(null, 'userNotFound');
     }
 
     return user;
@@ -46,7 +47,7 @@ const userService = fp(async (fastify, options) => {
     });
 
     if (!user) {
-      throw new Error('用户不存在');
+      throw createError(null, 'userNotFound');
     }
 
     return user;
@@ -70,10 +71,10 @@ const userService = fp(async (fastify, options) => {
 
   const addUser = async ({ avatar, nickname, gender, birthday, description, phone, email, password, status }) => {
     if ((await accountIsExists({ phone, email })) > 0) {
-      throw new Error('手机号或者邮箱都不能重复');
+      throw createError(null, 'accountDuplicate');
     }
     if (!password) {
-      throw new Error('密码不能为空');
+      throw createError(null, 'passwordRequired');
     }
     const account = await models.userAccount.create(await services.account.passwordEncryption(password));
     const user = await models.user.create({
@@ -123,7 +124,7 @@ const userService = fp(async (fastify, options) => {
     const user = await getUserInstance({ id });
 
     if ((await accountIsExists({ phone: otherInfo.phone, email: otherInfo.email }, user)) > 0) {
-      throw new Error('手机号或者邮箱都不能重复');
+      throw createError(null, 'accountDuplicate');
     }
 
     ['nickname', 'avatar', 'phone', 'email', 'description'].forEach(fieldName => {

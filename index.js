@@ -4,6 +4,7 @@ const { merge } = require('lodash');
 const jwt = require('@fastify/jwt');
 const namespace = require('@kne/fastify-namespace');
 const httpErrors = require('http-errors');
+const { locale, createError, createTranslator } = require('./libs/utils/intl');
 
 const { Unauthorized } = httpErrors;
 
@@ -23,6 +24,7 @@ const user = fp(
           }
         },
         defaultPassword: 'Aa000000!',
+        intlNamespace: 'intl',
         sendMessage: async () => {
         }
       },
@@ -31,6 +33,28 @@ const user = fp(
     if (!options.prefix) {
       options.prefix = `/api/${options.name}/v${options.version}`;
     }
+    const translator = createTranslator({ fastify, options });
+    fastify.addHook('onError', translator.onError);
+    const tokenUser = async request => {
+      const { services } = fastify[options.name];
+      let info;
+      try {
+        info = await request.jwtVerify();
+      } catch (e) {
+        throw createError(Unauthorized, 'authenticationFailed');
+      }
+      //这里判断失效时间
+      if (options.jwt.expires && Date.now() - info.iat * 1000 > options.jwt.expires) {
+        throw createError(Unauthorized, 'authenticationExpired');
+      }
+      request.authenticatePayload = info.payload;
+      request.userInfo = await services.user.getUser(request.authenticatePayload);
+      // 与登录一致：只有 0 / 1 状态可用，禁用或关闭后旧 token 立即失效
+      if (!(request.userInfo.status === 0 || request.userInfo.status === 1)) {
+        throw createError(Unauthorized, 'accountUnavailable');
+      }
+      request.appName = request.headers['x-app-name'];
+    };
     fastify.register(jwt, options.jwt);
     fastify.register(namespace, {
       options,
@@ -44,29 +68,22 @@ const user = fp(
         ],
         ['services', path.resolve(__dirname, './libs/services')],
         ['controllers', path.resolve(__dirname, './libs/controllers')],
+        ['locale', locale],
+        ['translator', translator],
         [
           'authenticate',
           {
             user: async request => {
-              const { services } = fastify[options.name];
-              let info;
-              try {
-                info = await request.jwtVerify();
-              } catch (e) {
-                throw Unauthorized('身份认证失败');
+              if (typeof options.getUserAuthenticate === 'function') {
+                return options.getUserAuthenticate()(request);
               }
-              //这里判断失效时间
-              if (options.jwt.expires && Date.now() - info.iat * 1000 > options.jwt.expires) {
-                throw Unauthorized('身份认证超时');
-              }
-              request.authenticatePayload = info.payload;
-              request.userInfo = await services.user.getUser(request.authenticatePayload);
-              request.appName = request.headers['x-app-name'];
+              return tokenUser(request);
             },
+            tokenUser,
             admin: async request => {
               const { services } = fastify[options.name];
               if (!(await services.admin.checkIsSuperAdmin(request.userInfo))) {
-                throw Unauthorized('不能执行该操作，需要超级管理员权限');
+                throw createError(Unauthorized, 'superAdminRequired');
               }
               request.userInfo.isAdmin = true;
             }
