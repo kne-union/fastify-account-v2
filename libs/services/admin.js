@@ -1,4 +1,5 @@
 const fp = require('fastify-plugin');
+const { createError } = require('../utils/intl');
 
 const adminService = fp(async (fastify, options) => {
     const {models, services, global} = fastify[options.name];
@@ -9,7 +10,7 @@ const adminService = fp(async (fastify, options) => {
                 isSuperAdmin: true
             }
         })) > 0) {
-            throw new Error('系统已经初始化完成，不能执行该操作');
+            throw createError(null, 'systemInitialized');
         }
         const currentUser = await services.user.getUserInstance({id: user.id});
         currentUser.isSuperAdmin = true;
