@@ -30,15 +30,15 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kne-union/fastify-user.git"
+    "url": "git+https://github.com/kne-union/fastify-account-v2.git"
   },
   "keywords": [],
   "author": "linzp",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/kne-union/fastify-user/issues"
+    "url": "https://github.com/kne-union/fastify-account-v2/issues"
   },
-  "homepage": "https://github.com/kne-union/fastify-user#readme",
+  "homepage": "https://github.com/kne-union/fastify-account-v2#readme",
   "peerDependencies": {
     "@kne/fastify-namespace": "*",
     "@kne/fastify-sequelize": "*",
