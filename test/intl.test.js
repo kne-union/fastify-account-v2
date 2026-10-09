@@ -7,6 +7,17 @@ const { buildApp } = require('./support/app');
 
 const badLogin = { type: 'email', email: 'nobody@test.com', password: 'x' };
 
+// @kne/fastify-intl 依赖 ESM-only 的 @formatjs/intl，Node 18 等不支持 require(esm) 的版本无法加载
+const describeWithIntl = (() => {
+  try {
+    require('@kne/fastify-intl');
+    return describe;
+  } catch (e) {
+    if (e.code === 'ERR_REQUIRE_ESM') return describe.skip;
+    throw e;
+  }
+})();
+
 describe('国际化', () => {
   it('中英文语言包 key 与占位符一致', () => {
     const zh = locale['zh-CN'];
@@ -36,7 +47,7 @@ describe('国际化', () => {
     await fastify.close();
   });
 
-  describe('注册 fastify-intl 后', () => {
+  describeWithIntl('注册 fastify-intl 后', () => {
     let app;
 
     before(async () => {
