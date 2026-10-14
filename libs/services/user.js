@@ -88,6 +88,12 @@ const userService = fp(async (fastify, options) => {
   const getUserList = async ({ filter, perPage, currentPage }) => {
     const queryFilter = {};
 
+    const keyword = filter?.keyword != null ? String(filter.keyword).trim() : '';
+    if (keyword) {
+      const like = { [Op.like]: `%${keyword}%` };
+      queryFilter[Op.or] = [{ nickname: like }, { email: like }, { phone: like }];
+    }
+
     ['nickname', 'phone', 'email'].forEach(key => {
       if (filter && filter[key]) {
         queryFilter[key] = {
