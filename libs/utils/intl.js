@@ -1,3 +1,4 @@
+const { BadRequest } = require('http-errors');
 const locale = require('../locale');
 
 const FALLBACK_LOCALE = 'zh-CN';
@@ -11,10 +12,11 @@ const fallbackMessage = (messageId, messageValues) => format(locale[FALLBACK_LOC
 
 /**
  * 创建带 messageId 的错误：message 先取内置中文，响应前由 onError 钩子按请求语言替换
+ * 未指定 ErrorClass 的业务错误按请求错误返回 400
  */
 const createError = (ErrorClass, messageId, messageValues) => {
   const message = fallbackMessage(messageId, messageValues);
-  const error = ErrorClass ? new ErrorClass(message) : new Error(message);
+  const error = new (ErrorClass || BadRequest)(message);
   return Object.assign(error, { messageScope: MESSAGE_SCOPE, messageId, messageValues });
 };
 

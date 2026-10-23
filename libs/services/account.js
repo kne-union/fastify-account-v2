@@ -22,10 +22,15 @@ const md5 = value => {
 const accountService = fp(async (fastify, options) => {
   const { models, services } = fastify[options.name];
   const { Op } = fastify.sequelize.Sequelize;
+  // 验证码按小写账号存储，邮箱不区分大小写
   const verificationCodeValidate = async ({ name, type, code }) => {
+    name = name.toLowerCase();
     const verificationCode = await models.verificationCode.findOne({
       where: {
-        name, type, code, status: {
+        name,
+        type,
+        code,
+        status: {
           [fastify.sequelize.Sequelize.Op.or]: [0, 1]
         }
       }
@@ -42,20 +47,27 @@ const accountService = fp(async (fastify, options) => {
 
   // validateCode 预校验后验证码仍需可用于注册，所以只在注册 / 重置密码成功后作废
   const consumeVerificationCode = async ({ name, type, code }) => {
-    await models.verificationCode.update({ status: 2 }, { where: { name, type, code } });
+    await models.verificationCode.update({ status: 2 }, { where: { name: name.toLowerCase(), type, code } });
   };
 
   const generateVerificationCode = async ({ name, type }) => {
     const code = generateRandom6DigitNumber();
-    await models.verificationCode.update({
-      status: 2
-    }, {
-      where: {
-        name, type, status: 0
+    await models.verificationCode.update(
+      {
+        status: 2
+      },
+      {
+        where: {
+          name,
+          type,
+          status: 0
+        }
       }
-    });
+    );
     await models.verificationCode.create({
-      name, type, code
+      name,
+      type,
+      code
     });
     return code;
   };
@@ -71,6 +83,7 @@ const accountService = fp(async (fastify, options) => {
   };
 
   const sendJWTVerificationCode = async ({ name, type, options: otherOptions }) => {
+    name = name.toLowerCase();
     const code = await generateVerificationCode({ name, type });
     const token = fastify.jwt.sign({ name, type, code });
     const isEmail = userNameIsEmail(name);
@@ -99,7 +112,8 @@ const accountService = fp(async (fastify, options) => {
     const hash = await bcrypt.hash(combinedString, salt);
 
     return {
-      password: hash, salt
+      password: hash,
+      salt
     };
   };
 
@@ -114,9 +128,7 @@ const accountService = fp(async (fastify, options) => {
     }
   };
 
-  const register = async ({
-                            avatar, nickname, gender, birthday, description, phone, email, code, password, status
-                          }) => {
+  const register = async ({ avatar, nickname, gender, birthday, description, phone, email, code, password, status }) => {
     const type = phone ? 0 : 1;
     const name = type === 0 ? phone : email;
     if (!(await verificationCodeValidate({ name, type: 0, code }))) {
@@ -124,7 +136,15 @@ const accountService = fp(async (fastify, options) => {
     }
 
     const user = await services.user.addUser({
-      avatar, nickname, gender, birthday, description, phone, email, password, status
+      avatar,
+      nickname,
+      gender,
+      birthday,
+      description,
+      phone,
+      email,
+      password,
+      status
     });
     await consumeVerificationCode({ name, type: 0, code });
     return user;
@@ -134,10 +154,16 @@ const accountService = fp(async (fastify, options) => {
     const query = {};
     (() => {
       if (type === 'email') {
+        if (!email) {
+          throw createError(null, 'credentialsInvalid');
+        }
         query.email = email.toLowerCase();
         return;
       }
       if (type === 'phone') {
+        if (!phone) {
+          throw createError(null, 'credentialsInvalid');
+        }
         query.phone = phone;
         return;
       }
@@ -205,9 +231,11 @@ const accountService = fp(async (fastify, options) => {
 
   const resetPassword = async ({ password, userId }) => {
     const user = await services.user.getUserInstance({ id: userId });
-    const account = await models.userAccount.create(Object.assign({}, await passwordEncryption(password), {
-      belongToUserId: user.id
-    }));
+    const account = await models.userAccount.create(
+      Object.assign({}, await passwordEncryption(password), {
+        belongToUserId: user.id
+      })
+    );
     await user.update({ userAccountId: account.id });
   };
 
@@ -216,6 +244,7 @@ const accountService = fp(async (fastify, options) => {
     sendVerificationCode,
     sendJWTVerificationCode,
     verificationCodeValidate,
+    consumeVerificationCode,
     verificationJWTCodeValidate,
     passwordEncryption,
     register,

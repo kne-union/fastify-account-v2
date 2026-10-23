@@ -125,14 +125,15 @@ describe('认证与用户、管理接口', () => {
       const token = await app.login({ email: user.email });
       assert.equal((await app.call('POST', '/user/saveUserInfo', { token, payload: { email: user.email, nickname: 'x' } })).status, 200);
       const response = await app.call('POST', '/user/saveUserInfo', { token, payload: { email: other.email } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, '手机号或者邮箱都不能重复');
     });
 
     it('修改邮箱后统一转小写', async () => {
       const user = await app.createUser();
       const token = await app.login({ email: user.email });
-      await app.call('POST', '/user/saveUserInfo', { token, payload: { email: 'Changed@Test.com' } });
+      const { code } = (await app.call('POST', '/account/sendEmailCode', { payload: { email: 'Changed@Test.com', type: 6 } })).body;
+      await app.call('POST', '/user/saveUserInfo', { token, payload: { email: 'Changed@Test.com', emailCode: code } });
       const info = (await app.call('GET', '/user/getUserInfo', { token })).body.userInfo;
       assert.equal(info.email, 'changed@test.com');
     });
@@ -159,7 +160,7 @@ describe('认证与用户、管理接口', () => {
         assert.equal(info.body.userInfo.id, first.id);
 
         const again = await fresh.call('POST', '/admin/initSuperAdmin', { token: secondToken });
-        assert.equal(again.status, 500);
+        assert.equal(again.status, 400);
         assert.equal(again.body.message, '系统已经初始化完成，不能执行该操作');
       } finally {
         await fresh.fastify.close();
@@ -205,7 +206,7 @@ describe('认证与用户、管理接口', () => {
 
     it('添加重复邮箱报错', async () => {
       const response = await app.call('POST', '/admin/addUser', { token: admin.token, payload: { email: 'added@test.com' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, '手机号或者邮箱都不能重复');
     });
 
@@ -290,7 +291,7 @@ describe('认证与用户、管理接口', () => {
 
     it('操作不存在的用户报用户不存在', async () => {
       const response = await app.call('POST', '/admin/setUserClose', { token: admin.token, payload: { id: 'missing' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, '用户不存在');
     });
   });

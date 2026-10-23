@@ -57,7 +57,7 @@ describe('账号流程', () => {
     it('正确验证码通过，错误验证码报错', async () => {
       const { code } = (await app.call('POST', '/account/sendEmailCode', { payload: { email: 'validate@test.com', type: 2 } })).body;
       const wrong = await app.call('POST', '/account/validateCode', { payload: { name: 'validate@test.com', type: 2, code: code === '000000' ? '111111' : '000000' } });
-      assert.equal(wrong.status, 500);
+      assert.equal(wrong.status, 400);
       assert.equal(wrong.body.message, zh.verificationCodeIncorrect);
       const ok = await app.call('POST', '/account/validateCode', { payload: { name: 'validate@test.com', type: 2, code } });
       assert.equal(ok.status, 200);
@@ -100,7 +100,7 @@ describe('账号流程', () => {
   describe('注册', () => {
     it('验证码错误时注册失败', async () => {
       const response = await app.call('POST', '/account/register', { payload: { email: 'reg-bad@test.com', password: 'pwd', code: '000000' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, zh.verificationCodeInvalid);
     });
 
@@ -112,7 +112,7 @@ describe('账号流程', () => {
 
       const { code: code2 } = (await app.call('POST', '/account/sendEmailCode', { payload: { email: 'reg@test.com', type: 0 } })).body;
       const duplicate = await app.call('POST', '/account/register', { payload: { email: 'reg@test.com', password: 'pwd', code: code2 } });
-      assert.equal(duplicate.status, 500);
+      assert.equal(duplicate.status, 400);
       assert.equal(duplicate.body.message, '手机号或者邮箱都不能重复');
     });
 
@@ -174,8 +174,8 @@ describe('账号流程', () => {
 
     it('不支持的登录类型报错', async () => {
       const response = await app.call('POST', '/account/login', { payload: { type: 'wechat', password: 'x' } });
-      assert.equal(response.status, 500);
-      assert.equal(response.body.message, '不支持的登录类型');
+      assert.equal(response.status, 400);
+      await assert.rejects(app.services.account.login({ type: 'wechat', password: 'x' }), { messageId: 'loginTypeUnsupported' });
     });
 
     it('非正常状态（禁用 / 待激活）只返回状态，不签发 token', async () => {
@@ -200,7 +200,7 @@ describe('账号流程', () => {
       const user = await app.createUser({ email: 'no-account@test.com' });
       await app.models.userAccount.destroy({ where: { id: user.userAccountId }, force: true });
       const response = await app.call('POST', '/account/login', { payload: { type: 'email', email: 'no-account@test.com', password: 'pwd' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, '账号不存在');
     });
   });
@@ -224,7 +224,7 @@ describe('账号流程', () => {
     it('新旧密码相同报错', async () => {
       await app.createUser({ email: 'same@test.com', status: 10 });
       const response = await app.call('POST', '/account/modifyPassword', { payload: { email: 'same@test.com', oldPwd: 'pwd', newPwd: 'pwd' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, zh.passwordSameAsInitial);
     });
 
@@ -237,7 +237,7 @@ describe('账号流程', () => {
     it('已激活用户不能走初始化改密', async () => {
       await app.createUser({ email: 'active@test.com', status: 0 });
       const response = await app.call('POST', '/account/modifyPassword', { payload: { email: 'active@test.com', oldPwd: 'pwd', newPwd: 'new' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, zh.passwordAlreadyInitialized);
     });
 
@@ -278,7 +278,7 @@ describe('账号流程', () => {
       const { token } = (await app.call('POST', '/account/forgetPwd', { payload: { email: 'reuse@test.com' } })).body;
       assert.equal((await app.call('POST', '/account/resetPassword', { payload: { token, newPwd: 'first' } })).status, 200);
       const again = await app.call('POST', '/account/resetPassword', { payload: { token, newPwd: 'second' } });
-      assert.equal(again.status, 500);
+      assert.equal(again.status, 400);
       assert.equal(again.body.message, zh.verificationCodeInvalid);
       assert.ok(await app.login({ email: 'reuse@test.com', password: 'first' }));
     });
@@ -292,7 +292,7 @@ describe('账号流程', () => {
 
       for (const url of ['/account/resetPassword', '/account/parseResetToken']) {
         const response = await app.call('POST', url, { payload: { token: forged, newPwd: 'hacked' } });
-        assert.equal(response.status, 500, url);
+        assert.equal(response.status, 400, url);
         assert.equal(response.body.message, zh.verificationCodeInvalid, url);
       }
       assert.ok(await app.login({ email: 'forged@test.com', password: 'old' }));
@@ -303,7 +303,7 @@ describe('账号流程', () => {
       const { token } = (await app.call('POST', '/account/forgetPwd', { payload: { email: 'forget-expire@test.com' } })).body;
       await expireCode({ name: 'forget-expire@test.com', type: 5 });
       const response = await app.call('POST', '/account/resetPassword', { payload: { token, newPwd: 'new' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, zh.verificationCodeInvalid);
     });
 
@@ -311,7 +311,7 @@ describe('账号流程', () => {
       await app.createUser({ email: 'forget-disabled@test.com', status: 11 });
       const { token } = (await app.call('POST', '/account/forgetPwd', { payload: { email: 'forget-disabled@test.com' } })).body;
       const response = await app.call('POST', '/account/resetPassword', { payload: { token, newPwd: 'new' } });
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.equal(response.body.message, '用户不存在');
     });
 

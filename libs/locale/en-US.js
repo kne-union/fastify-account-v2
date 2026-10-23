@@ -13,5 +13,6 @@ module.exports = {
   passwordSameAsInitial: 'The new password cannot be the same as the initial password',
   userNotFound: 'User does not exist',
   accountDuplicate: 'Phone number or email is already in use',
-  passwordRequired: 'Password cannot be empty'
+  passwordRequired: 'Password cannot be empty',
+  accountRequired: 'Keep at least one of email or phone number'
 };
