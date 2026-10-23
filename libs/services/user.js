@@ -5,6 +5,8 @@ const { createError } = require('../utils/intl');
 
 const { Unauthorized } = httpErrors;
 
+const ACCOUNT_CHANGE_CODE_TYPE = 6;
+
 const userService = fp(async (fastify, options) => {
   const { models, services } = fastify[options.name];
   const { Op } = fastify.sequelize.Sequelize;
@@ -38,12 +40,14 @@ const userService = fp(async (fastify, options) => {
     const isEmail = services.account.userNameIsEmail(name);
     const query = {};
     if (!isNil(status)) {
-      query['status'] = Array.isArray(status) ? {
-        [fastify.sequelize.Sequelize.Op.or]: status
-      } : status;
+      query['status'] = Array.isArray(status)
+        ? {
+            [fastify.sequelize.Sequelize.Op.or]: status
+          }
+        : status;
     }
     const user = await models.user.findOne({
-      where: Object.assign({}, isEmail ? { email: name } : { phone: name }, query)
+      where: Object.assign({}, isEmail ? { email: name.toLowerCase() } : { phone: name }, query)
     });
 
     if (!user) {
@@ -55,18 +59,20 @@ const userService = fp(async (fastify, options) => {
 
   const accountIsExists = async ({ email, phone }, currentUser) => {
     const query = [];
-    if (email && email !== get(currentUser, 'email')) {
+    if (email && email.toLowerCase() !== get(currentUser, 'email')) {
       query.push({ email: email.toLowerCase() });
     }
     if (phone && phone !== get(currentUser, 'phone')) {
       query.push({ phone });
     }
 
-    return ((await models.user.count({
-      where: {
-        [Op.or]: query
-      }
-    })) > 0);
+    return (
+      (await models.user.count({
+        where: {
+          [Op.or]: query
+        }
+      })) > 0
+    );
   };
 
   const addUser = async ({ avatar, nickname, gender, birthday, description, phone, email, password, status }) => {
@@ -78,7 +84,15 @@ const userService = fp(async (fastify, options) => {
     }
     const account = await models.userAccount.create(await services.account.passwordEncryption(password));
     const user = await models.user.create({
-      avatar, nickname, gender, birthday, description, phone, email, status, userAccountId: account.id
+      avatar,
+      nickname,
+      gender,
+      birthday,
+      description,
+      phone,
+      email,
+      status,
+      userAccountId: account.id
     });
     await account.update({ belongToUserId: user.id });
 
@@ -117,29 +131,66 @@ const userService = fp(async (fastify, options) => {
     }
 
     const { count, rows } = await models.user.findAndCountAll({
-      where: queryFilter, offset: perPage * (currentPage - 1), limit: perPage, order: [['createdAt', 'DESC']]
+      where: queryFilter,
+      offset: perPage * (currentPage - 1),
+      limit: perPage,
+      order: [['createdAt', 'DESC']]
     });
     return {
       pageData: rows.map(item => {
         return Object.assign({}, item.get({ pain: true }));
-      }), totalCount: count
+      }),
+      totalCount: count
     };
+  };
+
+  // 未传（undefined）保持原值，传空字符串或 null 清空
+  const isCleared = value => value === '' || value === null;
+
+  const checkAccountChange = async (user, { phone, email }) => {
+    const nextEmail = email === undefined ? user.email : isCleared(email) ? null : email;
+    const nextPhone = phone === undefined ? user.phone : isCleared(phone) ? null : phone;
+    if (!nextEmail && !nextPhone) {
+      throw createError(null, 'accountRequired');
+    }
+    if (await accountIsExists({ phone, email }, user)) {
+      throw createError(null, 'accountDuplicate');
+    }
   };
 
   const saveUser = async ({ id, ...otherInfo }) => {
     const user = await getUserInstance({ id });
+    await checkAccountChange(user, otherInfo);
 
-    if ((await accountIsExists({ phone: otherInfo.phone, email: otherInfo.email }, user)) > 0) {
-      throw createError(null, 'accountDuplicate');
-    }
-
-    ['nickname', 'avatar', 'phone', 'email', 'description'].forEach(fieldName => {
-      if (otherInfo[fieldName]) {
-        user[fieldName] = otherInfo[fieldName];
+    ['nickname', 'avatar', 'phone', 'email', 'gender', 'birthday', 'description'].forEach(fieldName => {
+      if (otherInfo[fieldName] !== undefined) {
+        user[fieldName] = isCleared(otherInfo[fieldName]) ? null : otherInfo[fieldName];
       }
     });
 
     await user.save();
+  };
+
+  // 用户自己修改邮箱 / 手机号时，必须用发往新号码的验证码（用途 6）证明归属
+  const saveCurrentUser = async ({ id, emailCode, phoneCode, ...otherInfo }) => {
+    const user = await getUserInstance({ id });
+    await checkAccountChange(user, otherInfo);
+
+    const changes = [
+      ['email', otherInfo.email, emailCode],
+      ['phone', otherInfo.phone, phoneCode]
+    ].filter(([field, value]) => value !== undefined && !isCleared(value) && (field === 'email' ? value.toLowerCase() : value) !== user[field]);
+
+    for (const [, name, code] of changes) {
+      if (!(code && (await services.account.verificationCodeValidate({ name, type: ACCOUNT_CHANGE_CODE_TYPE, code })))) {
+        throw createError(null, 'verificationCodeInvalid');
+      }
+    }
+
+    await saveUser(Object.assign({ id }, otherInfo));
+    for (const [, name, code] of changes) {
+      await services.account.consumeVerificationCode({ name, type: ACCOUNT_CHANGE_CODE_TYPE, code });
+    }
   };
 
   const setSuperAdmin = async ({ userId, status }) => {
@@ -160,6 +211,7 @@ const userService = fp(async (fastify, options) => {
     getUser,
     addUser,
     saveUser,
+    saveCurrentUser,
     accountIsExists,
     getUserList,
     setSuperAdmin,

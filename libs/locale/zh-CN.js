@@ -13,5 +13,6 @@ module.exports = {
   passwordSameAsInitial: '重置密码不能和初始化密码相同',
   userNotFound: '用户不存在',
   accountDuplicate: '手机号或者邮箱都不能重复',
-  passwordRequired: '密码不能为空'
+  passwordRequired: '密码不能为空',
+  accountRequired: '邮箱和手机号至少保留一个'
 };
