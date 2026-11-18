@@ -158,6 +158,7 @@ describe('认证与用户、管理接口', () => {
         const info = await fresh.call('GET', '/admin/getSuperAdminInfo', { token: firstToken });
         assert.equal(info.status, 200);
         assert.equal(info.body.userInfo.id, first.id);
+        assert.deepEqual(info.body.setting, {});
 
         const again = await fresh.call('POST', '/admin/initSuperAdmin', { token: secondToken });
         assert.equal(again.status, 400);

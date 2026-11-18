@@ -26,7 +26,10 @@ const user = fp(
         defaultPassword: 'Aa000000!',
         intlNamespace: 'intl',
         sendMessage: async () => {
-        }
+        },
+        // getSuperAdminInfo 附加的 setting：对象常量，或 async ({ fastify, request, userInfo }) => object
+        adminSetting: undefined,
+        getAdminSetting: undefined
       },
       options
     );
