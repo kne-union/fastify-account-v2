@@ -1,7 +1,18 @@
 const fp = require('fastify-plugin');
-const { empty } = require('../schema/response');
+const { empty, success, obj, user } = require('../schema/response');
 
 const TAG = '账号管理后台-超级管理员';
+
+const resolveAdminSetting = async ({ fastify, options, request }) => {
+  if (typeof options.getAdminSetting === 'function') {
+    const setting = await options.getAdminSetting({ fastify, request, userInfo: request.userInfo });
+    return setting && typeof setting === 'object' && !Array.isArray(setting) ? setting : {};
+  }
+  if (options.adminSetting && typeof options.adminSetting === 'object' && !Array.isArray(options.adminSetting)) {
+    return options.adminSetting;
+  }
+  return {};
+};
 
 const adminController = fp(async (fastify, options) => {
   const { services, authenticate } = fastify[options.name];
@@ -29,35 +40,21 @@ const adminController = fp(async (fastify, options) => {
       schema: {
         tags: [TAG],
         summary: '获取超级管理员信息',
-        description: '校验当前用户是超级管理员并返回其基本信息，非超级管理员报错；可用于判断是否有管理后台权限',
-        response: {
-          200: {
-            description: '当前超级管理员信息；未填写的字段输出为空字符串',
-            type: 'object',
-            properties: {
-              userInfo: {
-                type: 'object',
-                description: '当前超级管理员',
-                properties: {
-                  id: { type: 'string', description: '用户id' },
-                  avatar: { type: 'string', description: '头像图片id' },
-                  nickname: { type: 'string', description: '用户昵称' },
-                  email: { type: 'string', description: '邮箱' },
-                  phone: { type: 'string', description: '电话' },
-                  gender: { type: 'string', description: '性别：F 女，M 男' },
-                  birthday: { type: 'string', format: 'date', description: '出生日期' },
-                  description: { type: 'string', description: '个人简介' },
-                  currentTenantId: { type: 'string', description: '当前租户ID（由上层租户插件注入时才有值）' },
-                  status: { type: 'number', description: '状态：0 正常' }
-                }
-              }
-            }
+        description:
+          '校验当前用户是超级管理员并返回其基本信息与宿主注入的 setting；非超级管理员报错。setting 由插件参数 getAdminSetting / adminSetting 提供，缺省为空对象',
+        response: success('当前超级管理员信息与 setting', {
+          type: 'object',
+          additionalProperties: true,
+          properties: {
+            userInfo: user,
+            setting: obj('宿主注入的管理端公开配置（如 appOpsEnabled）；未配置时为 {}')
           }
-        }
+        })
       }
     },
     async request => {
-      return { userInfo: request.userInfo };
+      const setting = await resolveAdminSetting({ fastify, options, request });
+      return { userInfo: request.userInfo, setting };
     }
   );
 });

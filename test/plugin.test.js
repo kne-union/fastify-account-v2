@@ -57,4 +57,31 @@ describe('插件配置', () => {
       await app.fastify.close();
     }
   });
+
+  it('getSuperAdminInfo 默认返回空 setting，getAdminSetting 可注入', async () => {
+    const plain = await buildApp();
+    try {
+      const { token } = await plain.createAdmin();
+      const info = await plain.call('GET', '/admin/getSuperAdminInfo', { token });
+      assert.equal(info.status, 200);
+      assert.deepEqual(info.body.setting, {});
+    } finally {
+      await plain.fastify.close();
+    }
+
+    const custom = await buildApp({
+      options: {
+        getAdminSetting: async ({ userInfo }) => ({ appOpsEnabled: true, userId: userInfo.id })
+      }
+    });
+    try {
+      const { user, token } = await custom.createAdmin();
+      const info = await custom.call('GET', '/admin/getSuperAdminInfo', { token });
+      assert.equal(info.status, 200);
+      assert.equal(info.body.setting.appOpsEnabled, true);
+      assert.equal(info.body.setting.userId, user.id);
+    } finally {
+      await custom.fastify.close();
+    }
+  });
 });
