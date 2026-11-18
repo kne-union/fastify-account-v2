@@ -4,7 +4,9 @@ const num = description => ({ type: 'number', nullable: true, description });
 const bool = description => ({ type: 'boolean', nullable: true, description });
 // ID（BIGINT）与日期可能是 number / string / Date，不声明类型，原样输出
 const any = description => ({ description });
-const obj = (description, properties) => ({ type: 'object', nullable: true, additionalProperties: true, description, properties });
+// properties 缺省必须为 {}：若写成 undefined，@fastify/swagger 在 convert 时会对 properties 调 Object.keys 抛
+// "Cannot convert undefined or null to object"，导致宿主 /open-api.json 整份文档 500
+const obj = (description, properties = {}) => ({ type: 'object', nullable: true, additionalProperties: true, description, properties });
 
 const success = (description, schema) => ({ 200: Object.assign({}, schema || { type: 'object' }, { description }) });
 const empty = description => success(description || '操作成功，返回空对象');
