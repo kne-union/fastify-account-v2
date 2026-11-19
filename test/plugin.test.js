@@ -2,8 +2,15 @@
 
 const assert = require('node:assert/strict');
 const { buildApp } = require('./support/app');
+const { obj } = require('../libs/schema/response');
 
 describe('插件配置', () => {
+  it('obj() 缺省 properties 为 {}，避免 swagger Object.keys(undefined)', () => {
+    const schema = obj('仅描述的开放对象');
+    assert.deepEqual(schema.properties, {});
+    assert.doesNotThrow(() => Object.keys(schema.properties));
+  });
+
   it('未配置 prefix 时按 name 与 version 生成', async () => {
     const app = await buildApp({ options: { prefix: undefined, name: 'member', version: '2.0.0' } });
     try {
